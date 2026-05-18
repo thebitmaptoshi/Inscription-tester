@@ -1,998 +1,313 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>ORD-TESTER v1.0</title>
-
+  <meta charset="utf-8">
+  <title>GoldenEye Viewer</title>
   <style>
-    :root {
-      --bg:        #0a0a0a;
-      --panel:     #1a1a1a;
-      --panel-2:   #222;
-      --orange:    #f7931a;
-      --orange-hi: #ffc56a;
-      --orange-lo: #a35e08;
-      --green:     #00ff41;
-      --green-dim: #00b82e;
-      --magenta:   #ff2e88;
-      --magenta-lo:#8a1a4a;
-      --cyan:      #00d4ff;
-      --cyan-lo:   #006a91;
-      --yellow:    #ffd60a;
-      --text:      #e8e8e8;
-      --dim:       #888;
-      --line:      #2e2e2e;
-    }
-
-    * { box-sizing: border-box; }
-
-    html, body {
-      margin: 0;
-      width: 100%;
-      min-height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: "Courier New", Consolas, Monaco, monospace;
-      font-size: 14px;
-      line-height: 1.45;
-      -webkit-font-smoothing: none;
-      image-rendering: pixelated;
-    }
-
-    body {
-      padding: 14px;
-      background:
-        radial-gradient(ellipse at center, rgba(0, 40, 0, 0.18), transparent 70%),
-        var(--bg);
-    }
-
-    /* CRT scanline overlay */
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: repeating-linear-gradient(
-        0deg,
-        rgba(0, 0, 0, 0.25) 0,
-        rgba(0, 0, 0, 0.25) 1px,
-        transparent 1px,
-        transparent 3px
-      );
-      z-index: 9999;
-      mix-blend-mode: multiply;
-    }
-
-    /* Subtle screen vignette */
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      box-shadow: inset 0 0 180px rgba(0, 0, 0, 0.85);
-      z-index: 9998;
-    }
-
-    main {
-      width: min(1280px, 100%);
-      margin: 0 auto;
-      display: grid;
-      gap: 12px;
-    }
-
-    /* ----- MARQUEE ----- */
-    .marquee {
-      background: var(--orange);
-      color: #000;
-      padding: 10px 14px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      font-weight: 900;
-      font-size: 12px;
-      border: 3px solid #000;
-      box-shadow:
-        inset -3px -3px 0 var(--orange-lo),
-        inset  3px  3px 0 var(--orange-hi),
-        0 4px 0 #000;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .marquee .left  { display: flex; align-items: center; gap: 10px; }
-    .marquee .right { display: flex; align-items: center; gap: 10px; font-size: 10px; }
-
-    .led {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      border: 1px solid #000;
-      animation: blink 1.1s steps(2) infinite;
-    }
-
-    .led.idle { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
-    .led.err  { background: var(--magenta); box-shadow: 0 0 8px var(--magenta); }
-
-    @keyframes blink {
-      0%, 60%   { opacity: 1; }
-      60.01%, 100% { opacity: 0.25; }
-    }
-
-    /* ----- PANELS (chunky bevel) ----- */
-    .panel {
-      background: var(--panel);
-      border: 3px solid #000;
-      box-shadow:
-        inset -3px -3px 0 #000,
-        inset  3px  3px 0 #4a4a4a,
-        0 4px 0 #000;
-    }
-
-    .panel-head {
-      background: var(--panel-2);
-      color: var(--orange);
-      padding: 9px 14px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      font-size: 11px;
-      border-bottom: 3px solid #000;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .panel-head small {
-      color: var(--dim);
-      font-weight: 400;
-      letter-spacing: 1px;
-      font-size: 10px;
-    }
-
-    .panel-head .title-line { display: flex; align-items: center; gap: 8px; }
-    .panel-head .title-line::before {
-      content: ">>";
-      color: var(--green);
-    }
-
-    /* ----- HERO ----- */
-    .hero {
-      padding: clamp(18px, 3vw, 28px);
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 18px;
-      align-items: stretch;
-    }
-
-    .hero-left { display: flex; flex-direction: column; justify-content: center; }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: #000;
-      color: var(--green);
-      border: 2px solid var(--green);
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      font-weight: 900;
-      width: fit-content;
-      text-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
-    }
-
-    .badge::before {
-      content: "█";
-      color: var(--orange);
-      text-shadow: 0 0 4px var(--orange);
-    }
-
-    h1 {
-      margin: 14px 0 12px;
-      font-size: clamp(26px, 5vw, 48px);
-      line-height: 1.05;
-      letter-spacing: 2px;
-      color: var(--orange);
-      text-transform: uppercase;
-      text-shadow:
-        3px 3px 0 #000,
-        6px 6px 0 var(--magenta);
-      font-weight: 900;
-    }
-
-    .hero p {
-      margin: 0;
-      color: var(--text);
-      font-size: 13px;
-    }
-
-    code {
-      padding: 2px 6px;
-      background: #000;
-      color: var(--green);
-      border: 1px solid var(--line);
-      font-family: inherit;
-      text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
-    }
-
-    /* ----- HOW-TO LIST (terminal box) ----- */
-    .how-to {
-      background: #000;
-      border: 3px solid var(--green-dim);
-      padding: 12px 14px;
-      box-shadow: inset 0 0 24px rgba(0, 255, 65, 0.08);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .how-to-title {
-      color: var(--green);
-      font-size: 11px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      border-bottom: 1px dashed var(--green-dim);
-      padding-bottom: 6px;
-      margin-bottom: 4px;
-    }
-
-    .step {
-      display: grid;
-      grid-template-columns: 42px 1fr;
-      gap: 8px;
-      align-items: start;
-    }
-
-    .step .num {
-      color: var(--orange);
-      font-weight: 900;
-      font-size: 12px;
-      text-shadow: 0 0 6px rgba(247, 147, 26, 0.5);
-    }
-
-    .step b {
-      display: block;
-      color: var(--green);
-      font-size: 12px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin-bottom: 2px;
-      text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
-    }
-
-    .step span {
-      color: var(--dim);
-      font-size: 11px;
-      line-height: 1.5;
-    }
-
-    /* ----- BUILD STATUS BAR (above tool grid) ----- */
-    .build-bar {
-      background: #000;
-      border: 3px solid var(--orange);
-      padding: 10px 14px;
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 12px;
-      align-items: center;
-      box-shadow: inset 0 0 24px rgba(247, 147, 26, 0.08);
-    }
-
-    .build-bar .label {
-      color: var(--orange);
-      font-size: 11px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      font-weight: 900;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .build-bar .info {
-      color: var(--dim);
-      font-size: 11px;
-      letter-spacing: 1px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .build-bar .info b { color: var(--green); font-weight: 900; }
-
-    /* ----- TOOL GRID ----- */
-    .tool {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .panel.tool-panel {
-      display: flex;
-      flex-direction: column;
-      min-height: 540px;
-    }
-
-    /* ----- BUTTONS ----- */
-    .buttons {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    button, .file {
-      font-family: inherit;
-      font-size: 10px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      font-weight: 900;
-      padding: 9px 12px;
-      border: 2px solid #000;
-      background: var(--orange);
-      color: #000;
-      cursor: pointer;
-      box-shadow:
-        inset -2px -2px 0 var(--orange-lo),
-        inset  2px  2px 0 var(--orange-hi),
-        3px 3px 0 #000;
-      transition: transform 0.04s linear, box-shadow 0.04s linear;
-      user-select: none;
-    }
-
-    button:hover, .file:hover { filter: brightness(1.08); }
-
-    button:active, .file:active {
-      transform: translate(3px, 3px);
-      box-shadow:
-        inset -2px -2px 0 var(--orange-lo),
-        inset  2px  2px 0 var(--orange-hi),
-        0 0 0 #000;
-    }
-
-    button.alt {
-      background: var(--cyan);
-      box-shadow:
-        inset -2px -2px 0 var(--cyan-lo),
-        inset  2px  2px 0 #80eaff,
-        3px 3px 0 #000;
-    }
-    button.alt:active {
-      box-shadow:
-        inset -2px -2px 0 var(--cyan-lo),
-        inset  2px  2px 0 #80eaff,
-        0 0 0 #000;
-    }
-
-    button.ghost, .file {
-      background: var(--panel-2);
-      color: var(--text);
-      box-shadow:
-        inset -2px -2px 0 #000,
-        inset  2px  2px 0 #555,
-        3px 3px 0 #000;
-    }
-    button.ghost:active, .file:active {
-      box-shadow:
-        inset -2px -2px 0 #000,
-        inset  2px  2px 0 #555,
-        0 0 0 #000;
-    }
-
-    button.danger {
-      background: var(--magenta);
-      color: #fff;
-      box-shadow:
-        inset -2px -2px 0 var(--magenta-lo),
-        inset  2px  2px 0 #ff80b8,
-        3px 3px 0 #000;
-    }
-    button.danger:active {
-      box-shadow:
-        inset -2px -2px 0 var(--magenta-lo),
-        inset  2px  2px 0 #ff80b8,
-        0 0 0 #000;
-    }
-
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
-    button:disabled:active { transform: none; }
-
-    input[type="file"] { display: none; }
-
-    /* ----- TEXTAREA: green-on-black terminal ----- */
-    textarea {
-      width: 100%;
-      flex: 1;
-      min-height: 420px;
-      resize: vertical;
-      border: 0;
-      outline: none;
-      padding: 14px;
-      background: #000;
-      color: var(--green);
-      font-family: inherit;
-      font-size: 13px;
-      line-height: 1.5;
-      text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
-      caret-color: var(--green);
-    }
-
-    textarea::selection { background: var(--green-dim); color: #000; text-shadow: none; }
-
-    /* ----- BASE URL ROW ----- */
-    .base {
-      display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 10px;
-      align-items: center;
-      padding: 10px 14px;
-      border-top: 3px solid #000;
-      background: var(--panel-2);
-    }
-
-    .base label {
-      color: var(--orange);
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      background: #000;
-      color: var(--green);
-      border: 2px solid var(--line);
-      padding: 8px 10px;
-      font-family: inherit;
-      font-size: 12px;
-      outline: none;
-      text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
-    }
-
-    input[type="text"]:focus { border-color: var(--green); }
-
-    /* ----- PREVIEW IFRAME ----- */
-    .preview-wrap {
-      position: relative;
-      flex: 1;
-      display: flex;
-      background: #fff;
-      border-top: 3px solid #000;
-    }
-
-    iframe {
-      width: 100%;
-      flex: 1;
-      min-height: 520px;
-      border: 0;
-      background: #fff;
-    }
-
-    /* Fullscreen behavior */
-    .preview-wrap:fullscreen,
-    .preview-wrap:-webkit-full-screen {
-      width: 100vw;
-      height: 100vh;
-      background: #000;
-      border: 0;
-    }
-    .preview-wrap:fullscreen iframe,
-    .preview-wrap:-webkit-full-screen iframe {
-      width: 100vw;
-      height: 100vh;
-      min-height: 100vh;
-    }
-
-    .fs-exit {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      z-index: 10;
-      display: none;
-      padding: 8px 12px;
-      background: #000;
-      color: var(--orange);
-      border: 2px solid var(--orange);
-      font-family: inherit;
-      font-weight: 900;
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      cursor: pointer;
-      box-shadow: 0 0 12px rgba(247, 147, 26, 0.5);
-    }
-
-    .preview-wrap:fullscreen .fs-exit,
-    .preview-wrap:-webkit-full-screen .fs-exit { display: inline-block; }
-
-    /* ----- STATUS BAR ----- */
-    .status-bar {
-      background: #000;
-      border: 3px solid var(--green-dim);
-      box-shadow: inset 0 0 24px rgba(0, 255, 65, 0.08);
-      padding: 10px 14px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .status-bar p {
-      margin: 0;
-      color: var(--text);
-      font-size: 12px;
-    }
-
-    .status-bar p code { color: var(--orange); }
-
-    #status {
-      color: var(--green);
-      font-size: 11px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      font-weight: 900;
-      text-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
-
-    #status::before {
-      content: "█";
-      color: var(--green);
-      animation: blink 1s steps(2) infinite;
-    }
-
-    /* ----- RESPONSIVE ----- */
-    @media (max-width: 900px) {
-      body { padding: 8px; }
-      .hero, .tool, .status-bar, .build-bar { grid-template-columns: 1fr; }
-      .build-bar { gap: 8px; }
-      .panel.tool-panel { min-height: 420px; }
-      iframe, textarea { min-height: 360px; }
-      .panel-head { flex-direction: column; align-items: flex-start; }
-      .base { grid-template-columns: 1fr; }
-      h1 { text-shadow: 2px 2px 0 #000, 4px 4px 0 var(--magenta); }
-    }
+    body { margin: 0; background: #000; overflow: hidden; }
+    canvas { display: block; }
   </style>
 </head>
-
 <body>
-  <main>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
-    <!-- Marquee -->
-    <div class="marquee">
-      <span class="left"><span class="led" id="hwLed"></span>ORD-TESTER&nbsp;v1.0</span>
-      <span class="right">[ FORK · BUILD · TEST · INSCRIBE ]</span>
-    </div>
+  const scene = new THREE.Scene();
+  const cssScene = new THREE.Scene();
 
-    <!-- Hero -->
-    <section class="panel hero">
-      <div class="hero-left">
-        <span class="badge">Bitcoin · Ordinals · Fork Harness</span>
-        <h1>Fork. Build.<br>Test before<br>spending sats.</h1>
-        <p>
-          Fork this repo, drop your build into <code>/build/index.html</code>,
-          and the tester loads it directly into the Ordinals receiver — same
-          environment your inscription will render in. No wasted sats, no
-          throwaway test inscriptions.
-        </p>
-      </div>
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 500000);
+  camera.position.set(0, 500, 3000);
 
-      <ul class="how-to">
-        <div class="how-to-title">// HOW-TO.TXT</div>
+  const glRenderer = new THREE.WebGLRenderer({ antialias: true });
+  glRenderer.setSize(window.innerWidth, window.innerHeight);
+  glRenderer.setPixelRatio(window.devicePixelRatio);
+  document.body.appendChild(glRenderer.domElement);
 
-        <div class="step">
-          <div class="num">[01]</div>
-          <div>
-            <b>Fork the repo</b>
-            <span>Enable GitHub Pages on your fork. The root index.html is this tester.</span>
-          </div>
-        </div>
+  const cssRenderer = new CSS3DRenderer();
+  cssRenderer.setSize(window.innerWidth, window.innerHeight);
+  cssRenderer.domElement.style.position = 'absolute';
+  cssRenderer.domElement.style.top = '0';
+  cssRenderer.domElement.style.pointerEvents = 'none';
+  document.body.appendChild(cssRenderer.domElement);
 
-        <div class="step">
-          <div class="num">[02]</div>
-          <div>
-            <b>Push your build to /build/</b>
-            <span>Place your app at <code>/build/index.html</code> + <code>/build/assets/</code>. Vite/React: set <code>base: "./"</code>.</span>
-          </div>
-        </div>
+  // First-person camera controls
+  const keys = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
+  const mouse = { x: 0, y: 0, locked: false };
+  const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  const speed = 300;
+  const sprintSpeed = 900;
 
-        <div class="step">
-          <div class="num">[03]</div>
-          <div>
-            <b>Open Pages URL → auto-loads</b>
-            <span>Your build streams into the receiver. Test on every device. Hit FULLSCREEN to check edge-to-edge.</span>
-          </div>
-        </div>
-      </ul>
-    </section>
+  document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'w') keys.w = true;
+    if (e.key.toLowerCase() === 'a') keys.a = true;
+    if (e.key.toLowerCase() === 's') keys.s = true;
+    if (e.key.toLowerCase() === 'd') keys.d = true;
+    if (e.key.toLowerCase() === 'q') keys.q = true;
+    if (e.key.toLowerCase() === 'e') keys.e = true;
+    if (e.key === 'Shift') keys.shift = true;
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key.toLowerCase() === 'w') keys.w = false;
+    if (e.key.toLowerCase() === 'a') keys.a = false;
+    if (e.key.toLowerCase() === 's') keys.s = false;
+    if (e.key.toLowerCase() === 'd') keys.d = false;
+    if (e.key.toLowerCase() === 'q') keys.q = false;
+    if (e.key.toLowerCase() === 'e') keys.e = false;
+    if (e.key === 'Shift') keys.shift = false;
+  });
 
-    <!-- Build status -->
-    <div class="build-bar" id="buildBar">
-      <span class="label"><span class="led idle" id="buildLed"></span>BUILD</span>
-      <span class="info" id="buildInfo">Looking for /build/index.html…</span>
-      <button id="loadBuildBtn">↻ Reload build</button>
-    </div>
+  document.addEventListener('click', () => {
+    glRenderer.domElement.requestPointerLock = glRenderer.domElement.requestPointerLock || glRenderer.domElement.mozRequestPointerLock;
+    glRenderer.domElement.requestPointerLock();
+  });
 
-    <!-- Tool -->
-    <section class="tool">
-      <!-- Input panel -->
-      <div class="panel tool-panel">
-        <div class="panel-head">
-          <span class="title-line">SOURCE</span>
-          <small>Loaded from /build or pasted manually</small>
-        </div>
+  document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement === glRenderer.domElement) {
+      mouse.x -= e.movementX * 0.005;
+      mouse.y -= e.movementY * 0.005;
+      mouse.y = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, mouse.y));
+    }
+  });
 
-        <div class="panel-head" style="border-top:0;border-bottom:3px solid #000;background:var(--panel);">
-          <div class="buttons">
-            <button id="previewBtn">▶ Preview</button>
-            <button class="ghost" id="sampleBtn">Sample</button>
-            <label class="file" for="fileInput">↑ Upload</label>
-            <input id="fileInput" type="file" accept=".html,.htm,text/html,text/plain" />
-          </div>
-        </div>
+  document.addEventListener('pointerlockchange', () => {
+    mouse.locked = document.pointerLockElement === glRenderer.domElement;
+  });
 
-        <textarea id="htmlInput" spellcheck="false" placeholder="Loading from /build/index.html…"></textarea>
+  scene.add(new THREE.AmbientLight(0xffffff, 2.0));
 
-        <div class="base">
-          <label for="baseUrl">[BASE URL]</label>
-          <input
-            id="baseUrl"
-            type="text"
-            placeholder="Auto-set to ./build/ when build loads"
-          />
-        </div>
-      </div>
+  const raycaster = new THREE.Raycaster();
+  const css3dObjects = []; // Track CSS3D objects for occlusion
 
-      <!-- Preview panel -->
-      <div class="panel tool-panel">
-        <div class="panel-head">
-          <span class="title-line">RECEIVER</span>
-          <small>Iframe sandbox · same as ordinals.com</small>
-        </div>
+  const loader = new GLTFLoader();
+  loader.load('exports/Facility/Facility.glb', (gltf) => {
+    scene.add(gltf.scene);
 
-        <div class="panel-head" style="border-top:0;border-bottom:3px solid #000;background:var(--panel);">
-          <div class="buttons">
-            <button id="fullscreenBtn" title="Toggle fullscreen (F)">⛶ Fullscreen</button>
-            <button class="alt" id="renderBtn">Render in viewer</button>
-            <button class="ghost" id="copyBtn">Copy</button>
-            <button class="danger" id="clearBtn">✕ Clear</button>
-          </div>
-        </div>
+    gltf.scene.traverse((obj) => {
+      if (!obj.isMesh) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat, idx) => {
+        if (!mat.name || !mat.name.startsWith('video_screen')) return;
+        console.log(`Processing material: ${mat.name}`);
+        const url = (mat.userData && mat.userData.videoUrl)
+          || 'https://ordinals.com/content/6fabc9c42d2dd697658f922f8e2ebb041d54a786bab354f90dfc26ef577d31bdi1';
 
-        <div class="preview-wrap" id="previewWrap">
-          <iframe
-            id="preview"
-            title="HTML preview"
-            allow="fullscreen; accelerometer; autoplay; camera; encrypted-media; geolocation; gyroscope; microphone; midi; xr-spatial-tracking; clipboard-read; clipboard-write"
-            allowfullscreen
-          ></iframe>
-          <button class="fs-exit" id="fsExitBtn" title="Exit fullscreen (Esc)">✕ Exit</button>
-        </div>
-      </div>
-    </section>
+        // Ordinal screen gets iframe as CSS3D object
+        if (mat.name.includes('ordinal_screen')) {
+          const box = new THREE.Box3().setFromObject(obj);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
 
-    <!-- Footer status -->
-    <section class="status-bar">
-      <p>
-        Drop your build at <code>/build/index.html</code> + <code>/build/assets/</code>.
-        For Vite/React, set <code>base: "./"</code> so relative assets resolve.
-        For one-off tests, paste HTML on the left and hit <code>PREVIEW</code>.
-      </p>
-      <div id="status">BOOTING</div>
-    </section>
+          // Detect plane orientation: smallest dimension = normal direction
+          // CSS3DObject default normal is +Z, so we rotate to match the plane's normal
+          const dims = [
+            { axis: 'x', val: Math.abs(size.x) },
+            { axis: 'y', val: Math.abs(size.y) },
+            { axis: 'z', val: Math.abs(size.z) }
+          ].sort((a, b) => a.val - b.val);
+          const normalAxis = dims[0].axis;  // smallest = normal direction
+          // Width/height = the two non-normal dimensions (actual mesh size)
+          const width = dims[2].val || 300;
+          const height = dims[1].val || 300;
 
-  </main>
+          const iframeDiv = document.createElement('div');
+          iframeDiv.style.width = width + 'px';
+          iframeDiv.style.height = height + 'px';
+          iframeDiv.style.overflow = 'hidden';
+          iframeDiv.style.border = 'none';
+          iframeDiv.style.background = '#000';
 
-  <script>
-    (function () {
-      var htmlInput     = document.getElementById("htmlInput");
-      var baseUrlInput  = document.getElementById("baseUrl");
-      var preview       = document.getElementById("preview");
-      var previewWrap   = document.getElementById("previewWrap");
-      var statusEl      = document.getElementById("status");
-      var fileInput     = document.getElementById("fileInput");
-      var fullscreenBtn = document.getElementById("fullscreenBtn");
-      var fsExitBtn     = document.getElementById("fsExitBtn");
-      var loadBuildBtn  = document.getElementById("loadBuildBtn");
-      var buildLed      = document.getElementById("buildLed");
-      var buildInfo     = document.getElementById("buildInfo");
+          const iframe = document.createElement('iframe');
+          iframe.src = url;
+          iframe.style.width = '100%';
+          iframe.style.height = '100%';
+          iframe.style.border = 'none';
+          iframe.style.margin = '0';
+          iframe.style.padding = '0';
+          iframeDiv.appendChild(iframe);
 
-      var sampleHtml =
-        '<!DOCTYPE html>\n' +
-        '<html lang="en">\n' +
-        '<head>\n' +
-        '  <meta charset="UTF-8" />\n' +
-        '  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n' +
-        '  <title>My Ordinals Test</title>\n' +
-        '  <style>\n' +
-        '    html, body { margin: 0; min-height: 100%; background: #050505; color: white; font-family: "Courier New", monospace; }\n' +
-        '    body { display: grid; place-items: center; padding: 24px; box-sizing: border-box; }\n' +
-        '    main { max-width: 760px; padding: 32px; background: #111; border: 3px solid #f7931a; text-align: center; box-shadow: 6px 6px 0 #000; }\n' +
-        '    h1 { font-size: clamp(32px,7vw,64px); letter-spacing: 2px; margin: 0 0 14px; color: #f7931a; text-shadow: 3px 3px 0 #000; text-transform: uppercase; }\n' +
-        '    p { color: #00ff41; line-height: 1.5; }\n' +
-        '    button { border: 2px solid #000; padding: 12px 18px; font-weight: 900; cursor: pointer; background: #f7931a; color: #000; box-shadow: 3px 3px 0 #000; font-family: inherit; }\n' +
-        '  </style>\n' +
-        '</head>\n' +
-        '<body>\n' +
-        '  <main>\n' +
-        '    <h1>It works</h1>\n' +
-        '    <p>This HTML rendered inside the Ordinals receiver. Replace /build/index.html in your fork to test your real app.</p>\n' +
-        '    <button onclick="alert(\'JavaScript works inside the test build\')">Test JS</button>\n' +
-        '  </main>\n' +
-        '</body>\n' +
-        '</html>';
+          const css3dObject = new CSS3DObject(iframeDiv);
+          css3dObject.position.copy(center);
+          css3dObject.scale.set(1, 1, 1);
+          // Rotate iframe so its normal matches the mesh plane's normal
+          const flipNormal = mat.userData && mat.userData.flipNormal;
 
-      function setStatus(message) { statusEl.textContent = message; }
-
-      function setBuildState(state, text) {
-        buildLed.classList.remove("idle", "err");
-        if (state === "idle") buildLed.classList.add("idle");
-        if (state === "err")  buildLed.classList.add("err");
-        // state "ok" leaves the green default
-        buildInfo.innerHTML = text;
-      }
-
-      function escapeAttr(value) {
-        return String(value || "").replace(/"/g, "&quot;");
-      }
-
-      function getBaseUrl() {
-        return baseUrlInput.value.trim() || new URL("./", window.location.href).href;
-      }
-
-      function wrapHtml(html, baseUrl) {
-        var out = String(html || "").trim();
-
-        if (!out) throw new Error("No HTML to render.");
-
-        var baseTag = "";
-
-        if (baseUrl) {
-          baseTag = '<base href="' + escapeAttr(new URL("./", baseUrl).href) + '">';
-        }
-
-        if (/<!doctype|<html[\s>]/i.test(out)) {
-          if (baseTag) {
-            if (/<base\s/i.test(out)) {
-              out = out.replace(/<base[^>]*>/i, baseTag);
-            } else if (/<head[\s>]/i.test(out)) {
-              out = out.replace(/<head([^>]*)>/i, "<head$1>" + baseTag);
-            } else {
-              out = out.replace(/<html([^>]*)>/i, "<html$1><head>" + baseTag + "</head>");
+          if (normalAxis === 'x') {
+            css3dObject.rotation.y = flipNormal ? Math.PI / 2 : -Math.PI / 2;
+          } else if (normalAxis === 'y') {
+            css3dObject.rotation.x = flipNormal ? -Math.PI / 2 : Math.PI / 2;
+          } else {
+            // normalAxis === 'z'
+            if (flipNormal) {
+              css3dObject.rotation.y = Math.PI;  // Flip 180° around Y axis
             }
           }
-          return out;
+          // normalAxis === 'z' is the default, no rotation needed
+          css3dObject.userData.worldPosition = center.clone();
+          cssScene.add(css3dObject);
+          css3dObjects.push({ css3d: css3dObject, worldPos: center.clone() });
+          console.log('CSS3D iframe created at:', center, 'size:', width, 'x', height, 'normalAxis:', normalAxis);
+        } else {
+          // Try image first (for static inscriptions), then video, then iframe (for HTML)
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            const tex = new THREE.CanvasTexture(canvas);
+            const newMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+            if (Array.isArray(obj.material)) obj.material[idx] = newMat;
+            else obj.material = newMat;
+            console.log('Image texture applied:', mat.name);
+          };
+
+          img.onerror = () => {
+            console.error(`Image load failed for ${mat.name}: ${url}. Trying video fallback.`);
+            // Fallback to video if image fails
+            const video = document.createElement('video');
+            video.src = url;
+            video.crossOrigin = 'anonymous';
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.play();
+
+            video.addEventListener('canplay', () => {
+              const tex = new THREE.VideoTexture(video);
+              const newMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+              if (Array.isArray(obj.material)) obj.material[idx] = newMat;
+              else obj.material = newMat;
+              console.log('Video texture applied:', mat.name);
+            });
+
+            video.addEventListener('error', () => {
+              if (!mat.name.includes('ordinal_screen') && !mat.name.includes('ordinal_display')) {
+                console.warn(`Video load failed for ${mat.name}, leaving transparent`);
+                return;
+              }
+              console.error(`Video load also failed for ${mat.name}. Trying iframe fallback.`);
+              // Last resort: try iframe (for HTML ordinals)
+              const box = new THREE.Box3().setFromObject(obj);
+              const center = box.getCenter(new THREE.Vector3());
+              const size = box.getSize(new THREE.Vector3());
+
+              // Detect plane orientation: smallest dimension = normal direction
+              const dims = [
+                { axis: 'x', val: Math.abs(size.x) },
+                { axis: 'y', val: Math.abs(size.y) },
+                { axis: 'z', val: Math.abs(size.z) }
+              ].sort((a, b) => a.val - b.val);
+              const normalAxis = dims[0].axis;
+              const width = dims[2].val || 300;
+              const height = dims[1].val || 300;
+
+              const iframeDiv = document.createElement('div');
+              iframeDiv.style.width = width + 'px';
+              iframeDiv.style.height = height + 'px';
+              iframeDiv.style.overflow = 'hidden';
+              iframeDiv.style.border = 'none';
+              iframeDiv.style.background = '#000';
+
+              const iframe = document.createElement('iframe');
+              iframe.src = url;
+              iframe.style.width = '100%';
+              iframe.style.height = '100%';
+              iframe.style.border = 'none';
+              iframe.style.margin = '0';
+              iframe.style.padding = '0';
+              iframeDiv.appendChild(iframe);
+
+              const css3dObject = new CSS3DObject(iframeDiv);
+              css3dObject.position.copy(center);
+              css3dObject.scale.set(1, 1, 1);
+              // Rotate iframe so its normal matches the mesh plane's normal
+              const flipNormal = mat.userData && mat.userData.flipNormal;
+
+              if (normalAxis === 'x') {
+                css3dObject.rotation.y = flipNormal ? Math.PI / 2 : -Math.PI / 2;
+              } else if (normalAxis === 'y') {
+                css3dObject.rotation.x = flipNormal ? -Math.PI / 2 : Math.PI / 2;
+              } else {
+                if (flipNormal) {
+                  css3dObject.rotation.y = Math.PI;
+                }
+              }
+              css3dObject.userData.worldPosition = center.clone();
+              cssScene.add(css3dObject);
+              css3dObjects.push({ css3d: css3dObject, worldPos: center.clone() });
+              console.log('HTML iframe applied:', mat.name, 'at:', center, 'normalAxis:', normalAxis);
+            });
+          };
+
+          img.src = url;
         }
-
-        return [
-          '<!DOCTYPE html>',
-          '<html lang="en">',
-          '<head>',
-          '<meta charset="UTF-8" />',
-          '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
-          baseTag,
-          '</head>',
-          '<body>',
-          out,
-          '</body>',
-          '</html>'
-        ].join("\n");
-      }
-
-      function renderPreview() {
-        try {
-          preview.srcdoc = wrapHtml(htmlInput.value, getBaseUrl());
-          setStatus("RENDERED");
-        } catch (error) {
-          console.error(error);
-          setStatus("ERR: " + (error.message || String(error)));
-        }
-      }
-
-      function renderInViewer() {
-        try {
-          var finalHtml = wrapHtml(htmlInput.value, getBaseUrl());
-          document.open();
-          document.write(finalHtml);
-          document.close();
-        } catch (error) {
-          console.error(error);
-          setStatus("ERR: " + (error.message || String(error)));
-        }
-      }
-
-      async function copyHtml() {
-        try {
-          await navigator.clipboard.writeText(htmlInput.value);
-          setStatus("COPIED");
-        } catch (error) {
-          setStatus("ERR: COPY FAILED");
-        }
-      }
-
-      function clearAll() {
-        htmlInput.value = "";
-        preview.srcdoc = "";
-        setStatus("CLEARED");
-      }
-
-      /* ---------- /build/ auto-loader ---------- */
-
-      async function loadBuildFile(silent) {
-        var buildUrl = new URL("./build/index.html", window.location.href).href;
-        var buildBase = new URL("./build/", window.location.href).href;
-
-        if (!silent) setBuildState("idle", "Fetching <b>./build/index.html</b>…");
-        setStatus("LOADING BUILD");
-
-        try {
-          var res = await fetch(buildUrl, { cache: "no-store" });
-
-          if (!res.ok) {
-            throw new Error("HTTP " + res.status);
-          }
-
-          var text = await res.text();
-
-          if (!text.trim()) {
-            throw new Error("File empty");
-          }
-
-          htmlInput.value = text;
-          baseUrlInput.value = buildBase;
-          renderPreview();
-
-          var size = (text.length / 1024).toFixed(1);
-          setBuildState(
-            "ok",
-            "Loaded <b>./build/index.html</b> · " + size + " KB · base <b>" +
-            new URL("./build/", window.location.href).pathname + "</b>"
-          );
-          setStatus("BUILD LOADED · " + size + " KB");
-          return true;
-        } catch (err) {
-          setBuildState(
-            "err",
-            "No build at <b>./build/index.html</b> (" + (err.message || "fetch failed") +
-            "). Push a build to your fork, or paste HTML manually."
-          );
-          setStatus("NO BUILD · USING SAMPLE");
-          return false;
-        }
-      }
-
-      /* ---------- Fullscreen ---------- */
-
-      function fsElement() {
-        return (
-          document.fullscreenElement ||
-          document.webkitFullscreenElement ||
-          document.mozFullScreenElement ||
-          document.msFullscreenElement ||
-          null
-        );
-      }
-
-      function requestFs(el) {
-        var fn =
-          el.requestFullscreen ||
-          el.webkitRequestFullscreen ||
-          el.mozRequestFullScreen ||
-          el.msRequestFullscreen;
-
-        if (!fn) return Promise.reject(new Error("Fullscreen not supported."));
-
-        var result = fn.call(el);
-        return result && result.then ? result : Promise.resolve();
-      }
-
-      function exitFs() {
-        var fn =
-          document.exitFullscreen ||
-          document.webkitExitFullscreen ||
-          document.mozCancelFullScreen ||
-          document.msExitFullscreen;
-
-        if (!fn) return Promise.resolve();
-
-        var result = fn.call(document);
-        return result && result.then ? result : Promise.resolve();
-      }
-
-      function toggleFullscreen() {
-        if (fsElement()) {
-          exitFs().catch(function (err) { setStatus("ERR: " + (err.message || "exit failed")); });
-          return;
-        }
-
-        if (!preview.srcdoc) renderPreview();
-
-        requestFs(previewWrap).then(
-          function () { setStatus("FULLSCREEN — ESC TO EXIT"); },
-          function (err) { setStatus("ERR: " + (err.message || "denied")); }
-        );
-      }
-
-      function onFsChange() {
-        fullscreenBtn.textContent = fsElement() ? "⤡ Exit fullscreen" : "⛶ Fullscreen";
-      }
-
-      [
-        "fullscreenchange",
-        "webkitfullscreenchange",
-        "mozfullscreenchange",
-        "MSFullscreenChange"
-      ].forEach(function (evt) { document.addEventListener(evt, onFsChange); });
-
-      // Keyboard: F toggles fullscreen, ignored while typing
-      document.addEventListener("keydown", function (e) {
-        if (e.key !== "f" && e.key !== "F") return;
-
-        var t = e.target;
-        var tag = t && t.tagName;
-
-        if (tag === "TEXTAREA" || tag === "INPUT" || (t && t.isContentEditable)) return;
-
-        e.preventDefault();
-        toggleFullscreen();
       });
+    });
+  });
 
-      /* ---------- Wire up ---------- */
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    glRenderer.setSize(window.innerWidth, window.innerHeight);
+    cssRenderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
-      fileInput.addEventListener("change", function () {
-        var file = fileInput.files && fileInput.files[0];
-        if (!file) return;
+  (function animate() {
+    requestAnimationFrame(animate);
 
-        var reader = new FileReader();
-        reader.onload = function () {
-          htmlInput.value = String(reader.result || "");
-          setBuildState("idle", "Manual upload: <b>" + file.name + "</b> (overrides /build/)");
-          setStatus("LOADED: " + file.name.toUpperCase());
-          renderPreview();
-        };
-        reader.readAsText(file);
-      });
+    // Camera movement
+    const delta = 1 / 60;
+    const currentSpeed = keys.shift ? sprintSpeed : speed;
+    const movement = new THREE.Vector3();
+    if (keys.w) movement.z -= currentSpeed * delta;
+    if (keys.s) movement.z += currentSpeed * delta;
+    if (keys.a) movement.x -= currentSpeed * delta;
+    if (keys.d) movement.x += currentSpeed * delta;
+    if (keys.q) movement.y -= currentSpeed * delta;
+    if (keys.e) movement.y += currentSpeed * delta;
+    movement.applyAxisAngle(new THREE.Vector3(0, 1, 0), mouse.x);
+    camera.position.addVectors(camera.position, movement);
 
-      document.getElementById("previewBtn").addEventListener("click", renderPreview);
+    // Camera rotation
+    euler.setFromQuaternion(camera.quaternion);
+    euler.setFromVector3(new THREE.Vector3(mouse.y, mouse.x, 0));
+    camera.quaternion.setFromEuler(euler);
 
-      document.getElementById("sampleBtn").addEventListener("click", function () {
-        htmlInput.value = sampleHtml;
-        baseUrlInput.value = new URL("./", window.location.href).href;
-        setBuildState("idle", "Sample HTML loaded (overrides /build/)");
-        renderPreview();
-      });
+    // Occlusion detection for CSS3D objects
+    css3dObjects.forEach(({ css3d, worldPos }) => {
+      const direction = new THREE.Vector3().subVectors(worldPos, camera.position).normalize();
+      const distance = camera.position.distanceTo(worldPos);
+      raycaster.set(camera.position, direction);
 
-      document.getElementById("renderBtn").addEventListener("click", renderInViewer);
-      document.getElementById("copyBtn").addEventListener("click", copyHtml);
-      document.getElementById("clearBtn").addEventListener("click", clearAll);
-      fullscreenBtn.addEventListener("click", toggleFullscreen);
-      fsExitBtn.addEventListener("click", function () { exitFs(); });
-      loadBuildBtn.addEventListener("click", function () { loadBuildFile(false); });
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      let isOccluded = false;
 
-      /* ---------- Init: try /build/, fall back to sample ---------- */
-
-      (async function init() {
-        var loaded = await loadBuildFile(false);
-
-        if (!loaded) {
-          htmlInput.value = sampleHtml;
-          baseUrlInput.value = new URL("./", window.location.href).href;
-          renderPreview();
+      // Check if any geometry is between camera and CSS3D object
+      for (let i = 0; i < intersects.length; i++) {
+        if (intersects[i].distance < distance - 10) { // 10 unit tolerance
+          isOccluded = true;
+          break;
         }
-      })();
-    })();
-  </script>
+      }
+
+      css3d.element.style.visibility = isOccluded ? 'hidden' : 'visible';
+    });
+
+    glRenderer.render(scene, camera);
+    cssRenderer.render(cssScene, camera);
+  })();
+</script>
 </body>
 </html>
