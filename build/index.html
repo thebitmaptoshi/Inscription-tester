@@ -89,7 +89,7 @@
   const css3dObjects = []; // Track CSS3D objects for occlusion
 
   const loader = new GLTFLoader();
-  loader.load('exports/Facility/Facility.glb', (gltf) => {
+  loader.load('./assets/Facility.glb', (gltf) => {
     scene.add(gltf.scene);
 
     gltf.scene.traverse((obj) => {
